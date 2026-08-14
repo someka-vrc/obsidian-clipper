@@ -695,26 +695,29 @@ browser.runtime.onMessage.addListener((request: unknown, sender: browser.Runtime
 		if (typedRequest.action === "openObsidianUrl") {
 			const url = (typedRequest as any).url;
 			if (url) {
-				browser.tabs.query({active: true, currentWindow: true}).then((tabs) => {
-					const currentTab = tabs[0];
-					if (currentTab && currentTab.id) {
-						browser.tabs.update(currentTab.id, { url: url }).then(() => {
-							sendResponse({ success: true });
-						}).catch((error) => {
-							console.error('Error opening Obsidian URL:', error);
-							sendResponse({
-								success: false,
-								error: error instanceof Error ? error.message : String(error)
+				// PATCH (Vivaldi NULL-pointer crash workaround):
+				// The original code called browser.tabs.update(currentTab.id, { url })
+				// to navigate the *active* tab directly to the obsidian:// URL. On some
+				// Chromium-based browsers (observed on Vivaldi 8.1.4087.64) this in-place
+				// navigation to a non-http(s) scheme walks through the browser's external-
+				// protocol-launch UI code while still tied to the live tab's WebContents,
+				// which appears to dereference a NULL pointer (0xC0000005, AV.Type: Read)
+				// somewhere inside vivaldi.dll and crashes the whole browser.
+				//
+				// Workaround: open the obsidian:// URL in a new, inactive background tab
+				// instead of navigating the current tab in place.
+				browser.tabs.create({ url: url, active: false }).then((newTab) => {
+					sendResponse({ success: true });
+					if (newTab && newTab.id) {
+						const tabIdToRemove = newTab.id;
+						setTimeout(() => {
+							browser.tabs.remove(tabIdToRemove).catch(() => {
+								// Tab may already be gone (e.g. user closed it) - ignore.
 							});
-						});
-					} else {
-						sendResponse({
-							success: false,
-							error: 'No active tab found'
-						});
+						}, 1500);
 					}
 				}).catch((error) => {
-					console.error('Error querying tabs:', error);
+					console.error('Error opening Obsidian URL:', error);
 					sendResponse({
 						success: false,
 						error: error instanceof Error ? error.message : String(error)
