@@ -2,4 +2,4 @@
 
 ## 差異
 
-「Obsidian に保存」ボタンで Vivaldi がクラッシュすることがある問題のワークアラウンド (#1)
+「Obsidian に保存」ボタンで Vivaldi がクラッシュすることがある問題のワークアラウンド (https://github.com/someka-vrc/obsidian-clipper/issues/1)
